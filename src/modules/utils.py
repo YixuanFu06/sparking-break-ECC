@@ -265,17 +265,16 @@ def modular_multiplication(n: int, p: int) -> tc.Circuit:
     # 2. 结果已在 res_reg 中（x*y mod p）
     return c
 
-def modular_square(n: int, p: int) -> tc.Circuit:
+def sqr(c: tc.Circuit, x_reg, res_reg, p):
     """
     模平方 |x⟩|0⟩ → |x⟩|x² mod p⟩
     """
-
-    c = tc.Circuit(2 * n)
-
+    n = len(x_reg) 
     for i in range(n):
-        # 对 x 的每一位 x_i，若为1，则|x⟩|y⟩|psi>->|x⟩|y⟩|psi+y*2^i mod p>
-        # 当x的第n-i位(也即整体电路的第n-i位, 从最高位向最低位不需要辅助比特)为1时，受控模加法
-        c.append(controlled_modular_add(x_reg, res_reg, p, control=n-i))
-        c.append(double(res_reg, p))
+        for j in range(i + 1, n):
+            # 对 x 的每一位 x_i 和 x_j，若 x_i 和 x_j 都为1，则|x⟩|psi>->|x⟩|psi+x_i*x_j*2^(i+j) mod p>
+            # 从最高位向最低位不需要辅助比特
+            controll_modular_add_constant(c, 1, res_reg, p, control1=n-i, control2=n-j)
+            double(c, res_reg, p)
         
     return c
