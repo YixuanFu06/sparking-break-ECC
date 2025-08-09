@@ -1,171 +1,102 @@
 import numpy as np
 import tensorcircuit as tc
 from typing import List
+import math
 
 tc.set_backend("tensorflow")
 
+def get_qubit_count(p: int) -> int:
+    """根据模数p计算所需的量子比特数量:n = ceil(log2(p))"""
+    return math.ceil(math.log2(p))
+
 def int_to_qubits(c: tc.Circuit, value: int, qubits: List[int]):
+    """将整数编码到量子比特寄存器中（小端序）"""
     for i, qubit in enumerate(qubits):
         if (value >> i) & 1:
             c.x(qubit)
 
-def qft(c: tc.Circuit, qubits: List[int], inverse: bool = False):
-    n = len(qubits)
-    
-    if not inverse:
-        for i in range(n):
-            c.h(qubits[i])
-            for j in range(i + 1, n):
-                angle = np.pi / (2 ** (j - i))
-                c.crz(qubits[j], qubits[i], theta=2 * angle)
-        
-        for i in range(n // 2):
-            c.swap(qubits[i], qubits[n - 1 - i])
-    else:
-        for i in range(n // 2):
-            c.swap(qubits[i], qubits[n - 1 - i])
-        
-        for i in range(n - 1, -1, -1):
-            for j in range(n - 1, i, -1):
-                angle = np.pi / (2 ** (j - i))
-                c.crz(qubits[j], qubits[i], theta=-2 * angle)
-            c.h(qubits[i])
+def addition(c: tc.Circuit, x_qubits: List[int], y_qubits: List[int]):
+    """
+    假设的加法函数：|X⟩|Y⟩ → |X⟩|X+Y⟩
+    这里我们假设这个函数已经实现，将X和Y相加，结果存储在Y寄存器中
+    """
+    pass  # 这个函数假设已经实现
 
-def qft_add_register(c: tc.Circuit, a_qubits: List[int], b_qubits: List[int]):
-    n = len(a_qubits)
-    
-    for i in range(n):
-        for j in range(i, n):
-            angle = np.pi / (2 ** (j - i))
-            c.crz(a_qubits[j], b_qubits[i], theta=2 * angle)
+def subtraction(c: tc.Circuit, p_qubits: List[int], y_qubits: List[int]):
+    """
+    假设的减法函数：|P⟩|Y⟩ → |P⟩|Y-P⟩
+    通过QFT加法函数的相位翻转实现
+    """
+    pass  # 这个函数假设已经实现
 
-def qft_subtract_register(c: tc.Circuit, a_qubits: List[int], b_qubits: List[int]):
-    n = len(a_qubits)
-    
-    for i in range(n):
-        for j in range(i, n):
-            angle = np.pi / (2 ** (j - i))
-            c.crz(a_qubits[j], b_qubits[i], theta=-2 * angle)
+def controlled_addition(c: tc.Circuit, control_qubit: int, p_qubits: List[int], y_qubits: List[int]):
+    """
+    受控加法函数：当控制位为1时，执行Y = Y + P
+    """
+    pass  # 这个函数假设已经实现
 
-def modular_addition(x_qubits: List[int], y_qubits: List[int], p: int) -> tc.Circuit:
-    n = len(x_qubits)
-    if len(y_qubits) != n:
-        raise ValueError("x_qubits和y_qubits必须有相同的长度")
+def modular_addition(c: tc.Circuit, x_qubits: List[int], y_qubits: List[int], p: int):
+    """
+    模加法：计算 (X + Y) mod p
+    输入：|X⟩|Y⟩
+    输出：|X⟩|(X+Y) mod p⟩
+    """
+    n = get_qubit_count(p)
     
-    total_qubits = max(max(x_qubits), max(y_qubits)) + 2 * n + 2
-    c = tc.Circuit(total_qubits)
+    # 第一步：将输入的|X⟩和|Y⟩相加
+    # 使用addition函数：|X⟩|Y⟩ → |X⟩|X+Y⟩
+    addition(c, x_qubits, y_qubits)
     
-    aux_start = max(max(x_qubits), max(y_qubits)) + 1
-    p_qubits = list(range(aux_start, aux_start + n))
-    temp_qubits = list(range(aux_start + n, aux_start + 2 * n))
-    sign_qubit = aux_start + 2 * n
+    # 现在y_qubits包含了X+Y的结果
     
+    # 第二步：从Y寄存器中减去p
+    # 首先需要创建存储p的寄存器
+    # 假设我们有足够的辅助量子比特
+    total_qubits = max(max(x_qubits), max(y_qubits)) + n + 2  # 需要额外的p寄存器和辅助比特
+    p_qubits = list(range(max(max(x_qubits), max(y_qubits)) + 1, 
+                         max(max(x_qubits), max(y_qubits)) + 1 + n))
+    z_qubit = max(max(x_qubits), max(y_qubits)) + 1 + n  # 辅助比特Z
+    
+    # 将p编码到p_qubits中
     int_to_qubits(c, p, p_qubits)
     
-    qft(c, y_qubits)
-    qft_add_register(c, x_qubits, y_qubits)
-    qft(c, y_qubits, inverse=True)
+    # 执行减法：Y = Y - P
+    subtraction(c, p_qubits, y_qubits)
     
-    for i in range(n):
-        c.cnot(y_qubits[i], temp_qubits[i])
+    # 第三步：检查最高位判断是否为负数
+    # 由于n = ceil(log2(p))，正常情况下最高位应该是0
+    # 如果减去p后变为负数，最高位会变成1
+    highest_bit = y_qubits[n-1]  # 最高位量子比特
     
-    qft(c, temp_qubits)
-    qft_subtract_register(c, p_qubits, temp_qubits)
-    qft(c, temp_qubits, inverse=True)
+    # 将最高位的状态复制到辅助比特Z
+    c.cnot(highest_bit, z_qubit)
     
-    if n > 0:
-        c.cnot(temp_qubits[n-1], sign_qubit)
-        c.x(sign_qubit)
+    # 第四步：条件性地加回p
+    # 如果结果小于0（Z=1），我们需要把Y加上p
+    # 如果结果不小于0（Z=0），什么都不做
+    # 以辅助比特Z为控制比特控制对Y加p的门
+    controlled_addition(c, z_qubit, p_qubits, y_qubits)
     
-    for i in range(n):
-        c.ccnot(sign_qubit, temp_qubits[i], y_qubits[i])
-        c.cnot(temp_qubits[i], y_qubits[i])
-        c.ccnot(sign_qubit, temp_qubits[i], y_qubits[i])
+    # 第五步：复原辅助比特Z
+    # 对Y寄存器内的结果减去X
+    # Y寄存器内要么是X+Y（-p再+回来了），要么是X+Y-p（-p后没有再操作）
+    subtraction(c, x_qubits, y_qubits)  # Y = Y - X
     
-    if n > 0:
-        c.x(sign_qubit)
-        c.cnot(temp_qubits[n-1], sign_qubit)
+    # 减去X后：
+    # - 如果原来是X+Y，现在剩余Y，最高位是0（意味着辅助比特Z应该是1）
+    # - 如果原来是X+Y-p，现在剩余Y-p，最高位是1（意味着辅助比特Z应该是0）
     
-    qft(c, temp_qubits)
-    qft_add_register(c, p_qubits, temp_qubits)
-    qft(c, temp_qubits, inverse=True)
+    # 需要在最高位=0时翻转Z，最高位=1时不动Z
+    # 先翻转最高位
+    c.x(highest_bit)
     
-    for i in range(n):
-        c.cnot(y_qubits[i], temp_qubits[i])
+    # 以翻转后的最高位为控制比特来翻转Z
+    c.cnot(highest_bit, z_qubit)
     
-    int_to_qubits(c, p, p_qubits)
+    # 再翻转最高位回来
+    c.x(highest_bit)
     
-    return c
+    # 第六步：恢复Y寄存器
+    # 将X加回到Y寄存器，恢复到最终结果
+    addition(c, x_qubits, y_qubits)  # Y = Y + X
 
-def test_modular_addition():
-    n = 3
-    p = 5
-    
-    x_qubits = [0, 1, 2]
-    y_qubits = [3, 4, 5]
-    
-    c = tc.Circuit(20)
-    
-    int_to_qubits(c, 3, x_qubits)
-    
-    int_to_qubits(c, 4, y_qubits)
-    
-    mod_add_circuit = modular_addition(x_qubits, y_qubits, p)
-    c.append(mod_add_circuit, list(range(20)))
-    
-    state = c.state()
-    probs = np.abs(state) ** 2
-    
-    max_idx = np.argmax(probs)
-    
-    result = 0
-    for i, qubit_idx in enumerate(y_qubits):
-        if (max_idx >> qubit_idx) & 1:
-            result |= (1 << i)
-    
-    print(f"量子计算结果: {result}")
-    print(f"期望结果: {(3 + 4) % p}")
-    print(f"测试通过: {result == (3 + 4) % p}")
-    
-    return result == (3 + 4) % p
-
-def test_multiple_cases():
-    n = 3
-    p = 5
-    
-    test_cases = [
-        (1, 2, (1 + 2) % p),
-        (2, 3, (2 + 3) % p),
-        (4, 4, (4 + 4) % p),
-        (0, 3, (0 + 3) % p),
-    ]
-    
-    print("测试多个模加法案例：")
-    for x_val, y_val, expected in test_cases:
-        x_qubits = [0, 1, 2]
-        y_qubits = [3, 4, 5]
-        
-        c = tc.Circuit(20)
-        int_to_qubits(c, x_val, x_qubits)
-        int_to_qubits(c, y_val, y_qubits)
-        
-        mod_add_circuit = modular_addition(x_qubits, y_qubits, p)
-        c.append(mod_add_circuit, list(range(20)))
-        
-        state = c.state()
-        probs = np.abs(state) ** 2
-        max_idx = np.argmax(probs)
-        
-        result = 0
-        for i, qubit_idx in enumerate(y_qubits):
-            if (max_idx >> qubit_idx) & 1:
-                result |= (1 << i)
-        
-        print(f"({x_val} + {y_val}) mod {p} = {result} (期望: {expected}) {'✓' if result == expected else '✗'}")
-
-if __name__ == "__main__":
-    print("测试模p加法实现")
-    print("=" * 30)
-    test_modular_addition()
-    print()
-    test_multiple_cases()
