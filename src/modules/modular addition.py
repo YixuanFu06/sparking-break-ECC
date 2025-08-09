@@ -5,16 +5,6 @@ import math
 
 tc.set_backend("tensorflow")
 
-def get_qubit_count(p: int) -> int:
-    """根据模数p计算所需的量子比特数量:n = ceil(log2(p))"""
-    return math.ceil(math.log2(p))
-
-def int_to_qubits(c: tc.Circuit, value: int, qubits: List[int]):
-    """将整数编码到量子比特寄存器中（小端序）"""
-    for i, qubit in enumerate(qubits):
-        if (value >> i) & 1:
-            c.x(qubit)
-
 def addition(c: tc.Circuit, x_qubits: List[int], y_qubits: List[int]):
     """
     假设的加法函数：|X⟩|Y⟩ → |X⟩|X+Y⟩
@@ -41,6 +31,13 @@ def modular_addition(c: tc.Circuit, x_qubits: List[int], y_qubits: List[int], p:
     输入：|X⟩|Y⟩
     输出：|X⟩|(X+Y) mod p⟩
     """
+
+    def int_to_qubits(c: tc.Circuit, value: int, qubits: List[int]):
+        """将整数编码到量子比特寄存器中（小端序）"""
+        for i, qubit in enumerate(qubits):
+            if (value >> i) & 1:
+                c.x(qubit)
+
     n = get_qubit_count(p)
     
     # 第一步：将输入的|X⟩和|Y⟩相加
@@ -100,3 +97,4 @@ def modular_addition(c: tc.Circuit, x_qubits: List[int], y_qubits: List[int], p:
     # 将X加回到Y寄存器，恢复到最终结果
     addition(c, x_qubits, y_qubits)  # Y = Y + X
 
+    int_to_qubits(c, p, p_qubits)

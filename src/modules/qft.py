@@ -2,12 +2,14 @@ import tensorcircuit as tc
 import numpy as np
 from typing import Sequence
 
-def qft(c: tc.Circuit, qubits: Sequence[int]) -> tc.Circuit:
+def qft(n: int) -> tc.Circuit:
     """
     对指定的量子比特序列应用量子傅里叶变换 (QFT)。
     此版本遵循小端序 (Little-Endian) 约定：qubits[0] 是 LSB。
     """
-    n = len(qubits)
+    c = tc.Circuit(n)
+    qubits = list(range(n))
+
     # 核心变换部分
     for i in range(n):
         # 1. 对当前量子比特应用 Hadamard 门
@@ -19,21 +21,15 @@ def qft(c: tc.Circuit, qubits: Sequence[int]) -> tc.Circuit:
             theta = np.pi / (2 ** (j - i))
             c.cphase(qubits[j], qubits[i], theta=theta)
     
-    # 3. 在末尾反转量子比特的顺序
-    for i in range(n // 2):
-        c.swap(qubits[i], qubits[n - 1 - i])
-
     return c
 
-def qft_dagger(c: tc.Circuit, qubits: Sequence[int]) -> tc.Circuit:
+def qft_dagger(n: int) -> tc.Circuit:
     """
     对指定的量子比特序列应用逆量子傅里叶变换 (IQFT)。
     此版本遵循小端序 (Little-Endian) 约定。
     """
-    n = len(qubits)
-    # 1. 首先反转量子比特的顺序
-    for i in range(n // 2):
-        c.swap(qubits[i], qubits[n - 1 - i])
+    c = tc.Circuit(n)
+    qubits = list(range(n))
 
     # 核心变换部分（以与 QFT 相反的顺序执行逆操作）
     for i in range(n - 1, -1, -1):

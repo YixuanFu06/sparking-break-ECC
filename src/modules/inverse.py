@@ -1,7 +1,7 @@
 import numpy as np
 import tensorcircuit as tc
 
-tc.set_backend("tensorflow")  # or "jax", "numpy"
+tc.set_backend("tensorflow")
 
 def modinv_quantum_circuit():
     # Create a 3-qubit circuit
@@ -9,7 +9,7 @@ def modinv_quantum_circuit():
     c = tc.Circuit(n)
     
     # The modular inverse operation is simply swapping qubit 1 and qubit 2
-    c.swap(1, 2)
+    c.swap(0, 1)
     
     return c
 
