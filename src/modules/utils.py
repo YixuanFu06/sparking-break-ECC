@@ -259,8 +259,9 @@ def modular_multiplication(n: int, p: int) -> tc.Circuit:
     for i in range(n):
         # 对 x 的每一位 x_i，若为1，则|x⟩|y⟩|psi>->|x⟩|y⟩|psi+y*2^i mod p>
         # 当x的第n-i位(也即整体电路的第n-i位, 从最高位向最低位不需要辅助比特)为1时，受控模加法
-        c.append(controlled_modular_addition(y_reg, res_reg, p, control=n-i))
-        c.append(double(c, res_reg, p))
+        # c.append(controlled_modular_addition(y_reg, res_reg, p, control=n-i))
+        c.append(controlled_modular_addition(n, p), list([n - i]) + list(range(n, 3 * n)))
+        c.append(doubling(n, p), list(range(2 * n, 3 * n)))
     
     # 2. 结果已在 res_reg 中（x*y mod p）
     return c
@@ -275,7 +276,8 @@ def modular_square(n: int, p: int) -> tc.Circuit:
     for i in range(n):
         # 对 x 的每一位 x_i，若为1，则|x⟩|y⟩|psi>->|x⟩|y⟩|psi+y*2^i mod p>
         # 当x的第n-i位(也即整体电路的第n-i位, 从最高位向最低位不需要辅助比特)为1时，受控模加法
-        c.append(controlled_modular_add(x_reg, res_reg, p, control=n-i))
-        c.append(double(res_reg, p))
+        # c.append(controlled_modular_add(x_reg, res_reg, p, control=n-i))
+        c.append(controlled_modular_addition(n, p), list([n - i]) + list(range(2 * n)))
+        c.append(doubling(n, p), list(range(n, 2 * n)))
         
     return c
